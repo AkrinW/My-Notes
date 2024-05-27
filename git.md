@@ -4,11 +4,11 @@ Tags:  `Git, Github`
 
 [TOC]
 
-#### 什么是Git?
+## 什么是Git?
 
 ***Git***是一个分布式管理工具，用来控制代码的版本，存储已有的代码。
 
-#### 如何开始?
+## 如何开始?
 
 在电脑上安装`git`，`vscode`，并注册一个[*Github*](https://github.com/dashboard)
 账号。
@@ -19,30 +19,29 @@ Tags:  `Git, Github`
 
 3. 在终端创建`git`仓库，也可以让`vscode`自动去做。
 
-```shell
-    git config --global user.email "your_email" 
-    git config --global user.name "your_name"   
-    # 设置个人信息，这是提交时会留下的
-    git config --global alias.st status # 给指令配置别名
+    ```shell
+        git config --global user.email "your_email" 
+        git config --global user.name "your_name"   
+        # 设置个人信息，这是提交时会留下的
+        git config --global alias.st status # 给指令配置别名
 
-    git init    # 创建新仓库
-    git add .   # 把目前文件夹的所有文件上传到暂存区
-    git status  # 可以查看目前文件的状态
-    git commit -m "message" # 提交文件，并且留下提交信息
-    git branch  # 查看当前分支情况
-    git branch -M main  
-    # 重命名主分支，默认的名字叫做master，不过现在都该成main了
-    git branch new1 # 新建一个分支
+        git init    # 创建新仓库
+        git add .   # 把目前文件夹的所有文件上传到暂存区
+        git status  # 可以查看目前文件的状态
+        git commit -m "message" # 提交文件，并且留下提交信息
+        git branch  # 查看当前分支情况
+        git branch -M main  
+        # 重命名主分支，默认的名字叫做master，不过现在都该成main了
+        git branch new1 # 新建一个分支
 
-    git remote add origin https://github.com/AkrinW/My-Notes.git    
-    # 从GitHub上复制仓库的地址，这样建立一个链接关系
-    git push -u origin main # 推送提交，成功上传到Github中
-
-```
+        git remote add origin https://github.com/AkrinW/My-Notes.git    
+        # 从GitHub上复制仓库的地址，这样建立一个链接关系
+        git push -u origin main # 推送提交，成功上传到Github中
+    ```
 
 4. 完成`git`的创建到提交到全过程。
 
-#### 提交会失败
+## 提交会失败
 
 对我来说，提交失败的情况会经常发生，下面是我总结的一些处理办法。
 
@@ -75,6 +74,7 @@ Tags:  `Git, Github`
 ---
 
 关闭SSL证书检查。因为我上传`Github`时并没有使用SSL，因此有时候上传会报错，所以在`git config`里关闭SSL功能
+
 ```shell
     git config --system http.sslVerify false
 ```
@@ -91,7 +91,7 @@ Tags:  `Git, Github`
 
 ---
 
-#### 设置仓库的保存范围
+## 设置仓库的保存范围
 
 并不是工作区里所有的文件都要保存，比如自己的`.vscode`文件夹，`.exe`可执行文件等等，把这些都上传到`git`没有太大的必要。
 
@@ -124,7 +124,7 @@ test.cpp
 下面这一部分基本上来自[廖雪峰的Git教程](https://www.liaoxuefeng.com/wiki/896043488029600)，大部分我也没有亲自尝试过。
 目前没有参与大项目，所有仓库只有我一个人在维护，所以里面的操作没有实践的机会。
 
-#### 本地版本控制
+## 本地版本控制
 
 ```shell
     git diff file   # 可以看文件的改动情况
@@ -142,7 +142,7 @@ test.cpp
 
 ---
 
-#### 分支管理
+## 分支管理
 
 ```shell
     git remote rm <name>    # 删除本地与远程仓库的链接
@@ -164,7 +164,7 @@ test.cpp
 
 ---
 
-####  暂存区
+## 暂存区
 
 ```shell
     git stash   # 暂存当前的更改
@@ -175,7 +175,7 @@ test.cpp
 
 ---
 
-#### 分支的推送
+## 分支的推送
 
 在添加新功能时，最好创建一个`feature`分支，在分支上实现后进行合并。
 
@@ -193,9 +193,6 @@ test.cpp
 ```
 
 ---
-
-#### 打标签
-
 `tag`和`commit`的区别在于，`tag`不一定要在每次提交的时候写好。
 在使用上会更灵活一点。
 
@@ -211,4 +208,4 @@ test.cpp
 
 ```
 
---- 
+---
