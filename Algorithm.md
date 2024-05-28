@@ -371,6 +371,50 @@ TreeNode* find(T i) {
 }
 
 void remove(T i) {
+    TreeNode *cur = root;
+    TreeNode *parent = nullptr;
+    while (p != nullptr && p->data != i) {
+        parent = p;
+        if (p->data > i) {
+            p = p->left;
+        } else {
+            p = p->right;
+        }
+    }
+    if (p == nullptr) {
+        return;
+    }
 
+    if (p->left != nullptr && p->right != nullptr) {
+        TreeNode *minNode = p->right;
+        TreeNode *minNodeParent = p;
+        while (minNode->left != nullptr) {
+            minNodeParent = minNode;
+            minNode = minNode->left;
+        }
+        p->value = minNode->value;
+        p = minNode;
+        parent = minNodeParent;
+    }
+
+    TreeNode *child;
+    if (p->left != nullptr) {
+        child = p->left;
+    } else {
+        child = p->right;
+    }
+    if (parent == nullptr) {
+        root = child;
+    } else if (parent->left == p) {
+        parent->left = child;
+    } else {
+        parent->right = child;
+    }
+    delete p;
 }
 ```
+
+#### AVL树
+
+普通的二叉搜索树，当按顺序插入数据时，二叉搜索树会退化成链表，此时搜索的性能会将为O(n)，为了保持O(logn)的搜索性能，需要维持二叉树的形状。用平衡性来考虑二叉树的形状。对于一个二叉树，考虑它的左右子树的高度。如果它的每个结点的高度差都在1以内，就说明平衡性是好的。
+AVL树是一颗满足平衡性能的二叉搜索树，在插入数据时，为了维持平衡性，它提出了对树进行旋转的操作。旋转分为四种，取决于新节点插入的位置，包括LL，LR，RL，RR。首先需要理解旋转的过程。
