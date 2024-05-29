@@ -418,3 +418,296 @@ void remove(T i) {
 
 普通的二叉搜索树，当按顺序插入数据时，二叉搜索树会退化成链表，此时搜索的性能会将为O(n)，为了保持O(logn)的搜索性能，需要维持二叉树的形状。用平衡性来考虑二叉树的形状。对于一个二叉树，考虑它的左右子树的高度。如果它的每个结点的高度差都在1以内，就说明平衡性是好的。
 AVL树是一颗满足平衡性能的二叉搜索树，在插入数据时，为了维持平衡性，它提出了对树进行旋转的操作。旋转分为四种，取决于新节点插入的位置，包括LL，LR，RL，RR。首先需要理解旋转的过程。
+什么是旋转？本质上是对已有节点的连接关系进行再分配，旋转影响的层数最高为待旋转节点往上2层。首先看LL和RR的旋转过程。
+![LL](./figure/algorithm/LL.png)
+![RR](./figure/algorithm/RR.png)
+注意，这里不要把新加入的节点当作最底层算了，因为观察每个节点的度数，失去平衡的节点最上层，而不是新加入的一层。
+仔细看节点的位置变化，应该理解旋转过程本质上是对于节点之间连接的再分配。
+标记顶层是N0，第一层是NL与NR，第二层是NLL，NLR，NRL，NRR。
+那么LL的操作就是改变N0与NL之间的父子关系，由NL作为最顶层。改变了以后，NL本身的右孩子NLR没有了父亲，因为NL指向N0了，而N0原本指向的左孩子NL也没了，所以很合理地让N0指向NLR。这样就完成了LL旋转。
+RR旋转是同理的，区别在于变为最顶层的是NR结点。LL与RR的实现代码如下。
+
+```cpp
+void LL(TreeNode *&p) {
+    TreeNode *newp = p->left;
+    p->left = newp->right;
+    newp->right = p;
+    p = newp;
+}
+
+void RR(TreeNode *&p) {
+    TreeNode *newp = p->right;
+    p->right = newp->left;
+    newp->left = p;
+    p = newp;
+}
+```
+
+接下来考虑LR与RL的旋转过程，首先要看图示过程。
+![LR](./figure/algorithm/LR.png)
+![RL](./figure/algorithm/RL.png)
+理解了前面的LL与RR以后，我们观察LR与RL操作后的结点变化。
+LR的结果是NLR结点最终变成了根结点，它的左右子结点为NL与N0。这两个子结点失去了孩子，于是把NLR的两个孩子再分配给他们。
+RL也是同理的，是LR的左右对称。LR与RL的代码实现如下。
+
+```cpp
+void LR(TreeNode *&p) {
+    TreeNode *newp = p->left->right;
+    p->left->right = newp->left;
+    newp->left = p->left;
+    p->left = newp->right;
+    newp->right = p;
+    p = newp;
+}
+
+void RL(TreeNode *&p) {
+    TreeNode *newp = p->right->left;
+    p->right->left = newp->right;
+    newp->right = p->right;
+    p->right = newp->left;
+    newp->left = p;
+    p = newp;
+}
+```
+
+这里写的旋转函数，都用了指针的引用，这样可以改变旋转根节点指向的地址本身。
+说明这一段时，没有详细说明为什么要这样旋转，对于AVL树来说，我们只需要知道哪个结点增加了新数据，并且向上更新每个父结点的高度即可。对于高度差到达2的结点进行一次旋转，就可以恢复这个结点的平衡。然而，一个结点恢复平衡，不代表它上面的结点还是平衡的。因此还需要继续向上查询高度。直到父节点本身是平衡的为止。最坏的情况，向上旋转会持续到根结点。
+理解了旋转可以维持高度以后，还需要考虑的问题是，我怎么知道这个结点的高度呢？方法是在结点里保存高度height。那么当插入结点时，我要怎么维护自己的高度变化呢？叶结点的高度默认是1，对于父结点，它的高度是左右结点的较大值加一。更新高度后，还需要比较左右结点的高度差，如果高度差为2，就需要进行旋转。
+注意到旋转以后，结点的高度会发生改变。因此，我们先回头考虑四个旋转后，高度受影响的结点。
+LL旋转中，发生变化的其实只有N0与NL两个结点。而其他结点的子结点都不改变，因此自然高度也不会有改变。
+![LL-2](./figure/algorithm/LL-2.png)
+RR同理，因此我们更新LL与RR函数，在旋转后更新N0的高度。
+
+```cpp
+int max(int a, int b) {
+    return a > b ? a : b;
+}
+int getheight(TreeNode *p) {
+    if (p == nullptr) {
+        return 0;
+    } else {
+        return p->height;
+    }
+}
+bool updateheight(TreeNode *p) {
+    int height = 1 + max(getheight(p->left),getheight(p->right));
+    if (p->height == height) {
+        return false;
+    }
+    p->height = height;
+    return true;
+}
+void LL(TreeNode *&p) {
+    TreeNode *newp = p->left;
+    p->left = newp->right;
+    newp->right = p;
+    updateheight(p);
+    updateheight(newp);
+    p = newp;
+}
+void RR(TreeNode *&p) {
+    TreeNode *newp = p->right;
+    p->right = newp->left;
+    newp->left = p;
+    updateheight(p);
+    updateheight(newp);
+    p = newp;
+}
+```
+
+接下来考虑LR与RL函数。LR中，高度改变的结点分别是N0，NL与NLR。同样参考下图的高度变化。
+虽然看似可以在NLR的左右结点插入新数据，但是不会对这3个结点的高度变化发生影响。
+因此我们在LR与RL函数里更新这3个结点的高度。
+![LR-2](./figure/algorithm/LR-2.png)
+
+```cpp
+void LR(TreeNode *&p) {
+    TreeNode *newp = p->left->right;
+    p->left->right = newp->left;
+    newp->left = p->left;
+    p->left = newp->right;
+    newp->right = p;
+    updateheight(newp->left);
+    updateheight(newp->right);
+    updateheight(newp);
+    p = newp;
+}
+void RL(TreeNode *&p) {
+    TreeNode *newp = p->right->left;
+    p->right->left = newp->right;
+    newp->right = p->right;
+    p->right = newp->left;
+    newp->left = p;
+    updateheight(newp->left);
+    updateheight(newp->right);
+    updateheight(newp);
+    p = newp;
+}
+```
+
+写好了四个旋转函数，终于我们可以实现插入与删除的操作了。查找与普通的二叉搜索树一样，因此就不用再重复实现了。对于插入和删除，因为需要一直向上考虑，因此需要用栈来存储所有的父节点。
+
+```cpp
+struct TreeNode {
+    int height;
+    T data;
+    TreeNode *left, *right;
+    TreeNode(T i) {
+        left = nullptr;
+        right =nullptr;
+        height = 1;
+        data = i;
+    }
+}
+int getdegree(TreeNode *p) {
+    int left = getheight(p->left);
+    int right = getheight(p->right);
+    return left - right;
+}
+
+void insert(T i) {
+    TreeNode *p = root;
+    if (p == nullptr) {
+        root = new TreeNode(i);
+        return;
+    }
+    std::stack<TreeNode*> st;
+    while (p != nullptr) {
+        st.push(p);
+        if (p->data == i) {
+            return;
+        } else if (p->data < i) {
+            p = p->right;
+        } else {
+            p = p->left;
+        }
+    }
+    p = st.top();
+    if (p->data < i) {
+        p->right = new TreeNode(i);
+    } else {
+        p->left = new TreeNode(i);
+    }
+    while (!st.empty()) {
+        p = st.top();
+        st.pop();
+        if (!updateheight(p)) {
+            return;
+        }
+        if (getdegree(p) < -1 || getdegree(p) > 1) {
+            if (p->data > i) {
+                if (p->left->data > i) {
+                    LL(p);
+                } else {
+                    LR(p);
+                }
+            } else {
+                if (p->right->data >i) {
+                    RL(p);
+                } else {
+                    RR(p);
+                }
+            }
+            if (st.empty()) {
+                root = p;
+            } else {
+                TreeNode *q = st.top();
+                if (p->data < q->data) {
+                    q->left = p;
+                } else {
+                    q->right = p;
+                }
+            }
+        }
+    }
+}
+```
+
+插入的查找添加新结点过程与普通二叉搜索树一致，插入完成后需要回溯栈，对原路线的结点高度进行考虑。旋转之后，需要更新父节点，连接到旋转后的结点上。否则父节点会连接到子结点，导致存储数据丢失。
+删除函数则更为复杂，基本的原理和普通删除一样，遇到2个结点的情况，需要替换并删除右子树的最左结点。这时候同样需要递归检查高度变化。由于删除与插入的方向是相反的，所以如果在左边删除，则需要对右子树进行旋转。
+这时候要怎么考虑左旋右旋的问题呢？我们总是尽可能选择操作少的方式，因此我们再考虑另一个子树的度数。只要不是内侧的子树高度更高，就可以使用LL或者RR完成旋转。否则，我们就只能使用LR和RL进行操作。
+
+```cpp
+void remove(T i) {
+    TreeNode *p = root;
+    TreeNode *parent = nullptr;
+    std::stack<TreeNode*> st;
+    while (p != nullptr) {
+        if (p->data == i) {
+            break;
+        } else if (p->data < i) {
+            st.push(p);
+            parent = p;
+            p = p->right;
+        } else {
+            st.push(p);
+            parent = p;
+            p = p->left;
+        }
+    }
+    if (p == nullptr) {
+        return;
+    }
+    if (p->left && p->right) {
+        TreeNode *child = p->right;
+        TreeNode *childp = p;
+        while (child->left != nullptr) {
+            st.push(child);
+            childp = child;
+            child = child->left;
+        }
+        p->data = child->data;
+        p = child;
+        parent = childp;
+    }
+    TreeNode *child;
+    if (p->left != nullptr) {
+        child = p->left;
+    } else {
+        child = p->right;
+    }
+    if (parent == nullptr) {
+        root = child;
+    } else if (parent->left == p) {
+        parent->left = child;
+    } else {
+        parent->right = child;
+    }
+    delete p;
+    while (!st.empty()) {
+        p = st.top();
+        st.pop();
+        if (!updateheight(p)) {
+            return;
+        }
+        if (getdegree(p) > 1) {
+            if (getdegree(p->left) == -1) {
+                LR(p);
+            } else {
+                LL(p);
+            }
+        } else if (getdegree(p) < -1) {
+            if (getdegree(p->right) == 1) {
+                RL(p);
+            } else {
+                RR(p);
+            }
+        }
+        if (st.empty()) {
+            root = p;
+        } else {
+            TreeNode *q = st.top();
+            if (p->data < q->data) {
+                q->left = p;
+            } else {
+                q->right = p;
+            }
+        }
+    }
+}
+```
+
+#### 红黑树
+
+普通AVL树为了维持树的高度平衡，进行了大量的旋转操作，最终保证树的高度差不会超过2。但是它的旋转次数过多，导致了性能的降低。为了进行优化，提出了红黑树作为AVL树的改进。红黑树为了减少旋转次数，降低了树的平衡性，让树的高度差可以大于2。但是它依然保持了对数的查找性能。
+利用红黑树的性质，可以保证其在插入与删除时，进行的旋转次数不超过3次。但是，这并不意味着它的操作降低到对数级别了。因为红黑树还有变色的操作，变色的次数依然是对数次的。
