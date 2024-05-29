@@ -711,3 +711,173 @@ void remove(T i) {
 
 普通AVL树为了维持树的高度平衡，进行了大量的旋转操作，最终保证树的高度差不会超过2。但是它的旋转次数过多，导致了性能的降低。为了进行优化，提出了红黑树作为AVL树的改进。红黑树为了减少旋转次数，降低了树的平衡性，让树的高度差可以大于2。但是它依然保持了对数的查找性能。
 利用红黑树的性质，可以保证其在插入与删除时，进行的旋转次数不超过3次。但是，这并不意味着它的操作降低到对数级别了。因为红黑树还有变色的操作，变色的次数依然是对数次的。
+可以用下面这个可视化网站模拟红黑树的过程，加强理解。
+[红黑树可视化](https://www.cs.usfca.edu/~galles/visualization/RedBlack.html)
+![MygoTree](./figure/algorithm/RedBlackMygo.png)
+
+红黑树首先满足二叉搜索树的全部要求，因此它的搜索效率是O(logn)的。此外，它给每个结点赋予了红色与黑色两种属性。并且满足：
+
+1. 红色结点的子结点都是黑色，没有连续的红色结点。
+2. 每个节点到nullptr结点的每条路径上，经过的黑节点个数相同。这里不会包含初始的结点本身的颜色。
+
+此外，有些教材上还会加上以下两个条件，但是其实都不是强求的。
+
+1. 根节点一定是黑色，是红色也不会影响算法。
+2. 空叶子结点是黑色，这种要求一般会额外创建一个不包含数据的结点作为标识。我们知道这样会导致存储的结点数×2，浪费更多空间。这是没有必要的，我们可以直接考虑结点是nullptr的情形，把它作为黑色的考虑。
+
+这里，我们先考虑以下红黑树的树高问题。按照要求，一颗全为黑色的红黑树也是红黑树，而每存在一个红结点，其父子都是黑结点，因此，红节点最多的情况是红色与黑色分层排满，并且树的高度不会超过黑节点层数的两倍。红节点的个数也不会超过黑结点个数的2倍。
+由此我们可以推断出总的高度处于对数的级别。只要我们在插入删除时，维持红黑树的性质，就可以得到一颗O(logn)的查找树。
+
+```cpp
+struct TreeNode {
+    T data;
+    bool color;//false-black, true-red
+    TreeNode *left, *right;
+    TreeNode(T i, bool c = false): data(i), color(c) {
+        left = nullptr;
+        right = nullptr;
+    }
+};
+```
+
+##### 插入结点
+
+红黑树插入时，我们知道插入黑色结点是不行的，因为必定会改变路径的黑色结点数。所以我们要插入红色的结点，如果插入的结点父节点是黑色的，插入就轻松完成了，如果是红色的，应该怎么进行调整呢？
+如果只有2层，也就是根节点是红色的，这个时候直接把根节点变为黑色就可以了。为了省略这个过程，我们插入第一个节点时，就可以直接把它设为黑色的。
+进入第3层，还是考虑N0,NL,NR,NLL,NLR,NRL,NRR的节点情况。假设我们插入在NLL上，NL是红色的节点。因为插入前，它就是颗红黑树，于是N0一定是黑色的节点。接下来，我们考虑NR是什么颜色的。简单情形是，NR是红色的，这时候，我们把NL与NR都改为黑色，就不会再出现连续的红节点。但是这时候，N0的黑高变高了，因为多了1层黑色的，为了维持高度不变，我们把N0也改为红色的。这样就算完成了吗？注意N0的父节点也有可能是红色，因此需要再往上进行颜色的调整。
+![RedBlackInsert1](./figure/algorithm/RedBlackInsert1.png)
+另外一种情况，NR是黑色的，这种情况可能会比较反直觉，一边红一边黑，黑高是如何维持一致的？首先nullptr也要算成黑色，其次，我们总是会回溯上面的节点，这时候就有可能出现一边红色一边黑色的情形。结果还是依靠旋转进行操作。根据子结点插入的位置，我们用之前的LL，LR，RL，RR操作进行调整，并且调整颜色，可以发现，这一过程，没有改变原本的黑高。
+![RedBlackInsert2](./figure/algorithm/RedBlackInsert2.png)
+而且N0结点的颜色也依然是黑色，说明我们不需要再往上检查了。
+我们在旋转过程中调整颜色，观察一下会发现，只有N0和新的根结点会变色。所以我们在旋转函数中增加这一调整。
+
+```cpp
+void LL(TreeNode *&p) {
+    TreeNode *newp = p->left;
+    p->left = newp->right;
+    newp->right = p;
+    p->color = !p->color;
+    newp->color = !newp->color;
+    p = newp;
+}
+void RR(TreeNode *&p) {
+    TreeNode *newp = p->right;
+    p->right = newp->left;
+    newp->left = p;
+    p->color = !p->color;
+    newp->color = !newp->color;
+    p = newp;
+}
+void LR(TreeNode *&p) {
+    TreeNode *newp = p->left->right;
+    p->left->right = newp->left;
+    newp->left = p->left;
+    p->left = newp->right;
+    newp->right = p;
+    p->color = !p->color;
+    newp->color = !newp->color;
+    p = newp;
+}
+void RL(TreeNode *&p) {
+    TreeNode *newp = p->right->left;
+    p->right->left = newp->right;
+    newp->right = p->right;
+    p->right = newp->left;
+    newp->left = p;
+    p->color = !p->color;
+    newp->color = !newp->color;
+    p = newp;
+}
+```
+
+很好，接下来我们就完成插入函数，同样，我们用栈保存路径上的结点。
+
+```cpp
+void insert(T i) {
+    TreeNode *p = root;
+    if (p == nullptr) {
+        root = new TreeNode(i);
+        return;
+    }
+    std::stack<TreeNode*> st;
+    while (p != nullptr) {
+        st.push(p);
+        if (p->data == i) {
+            return;
+        } else if (p->data < i) {
+            p = p->right;
+        } else {
+            p = p->left;
+        }
+    }
+    p = st.top();
+    if (p->data < i) {
+        p->right = new TreeNode(i, true);
+    } else {
+        p->left = new TreeNode(i, true);
+    }
+    if (p->color) {
+        if (p == root) {
+            p->color = false;
+            return;
+        }
+        st.pop();
+        bool flag = true;
+        while (!st.empty()) {
+            p = st.top();
+            st.pop();
+            if (p->color) {
+                if (p == root) {
+                    p->color = false;
+                    return;
+                }
+                flag = true;
+                continue;
+            } else if (flag == false){
+                return;
+            }
+            if (!comparecolor(p)) {//red,black
+                if (p->data > i) {
+                    if (p->left->data > i) {
+                        LL(p);
+                    } else {
+                        LR(p);
+                    }
+                } else {
+                    if (p->right->data > i) {
+                        RL(p);
+                    } else {
+                        RR(p);
+                    }
+                }
+                if (st.empty()) {
+                    root = p;
+                } else {
+                    TreeNode *q = st.top();
+                    if (p->data < q->data) {
+                        q->left = p;
+                    } else {
+                        q->right = p;
+                    }
+                }
+                return;
+            } else {//red,red
+                p->color = true;
+                if (p->left){
+                    p->left->color = false;
+                }
+                if (p->right){
+                    p->right->color = false;
+                }
+                flag = false;
+            }
+        }
+    }
+}
+```
+
+注意我们更新颜色时的处理。代码的前半部分是正常的插入过程，之后我们需要迭代考虑颜色情况。我们要从插入结点的爷爷结点开始处理。我们用flag来表示此前是否存在连续双红的情况，如果没有，我们就能直接return，如果有，我们根据父辈结点的颜色分别进行不同的处理。
+特别地，当处理到根节点时，我们直接把根节点变为黑色，并且return。
+这里是否需要考虑根节点是红色，并且只有2层的情况？
+虽然我们初始化时，已经把根节点设置为黑色的了，但是有可能经过删除操作后，会出现两层且为黑结点的情况。以防万一，我们也必须对2层时进行检查，保证它一直是一颗红黑树。
+
