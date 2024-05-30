@@ -651,6 +651,7 @@ void remove(T i) {
     if (p->left && p->right) {
         TreeNode *child = p->right;
         TreeNode *childp = p;
+        st.push(p);
         while (child->left != nullptr) {
             st.push(child);
             childp = child;
@@ -707,6 +708,8 @@ void remove(T i) {
 }
 ```
 
+---
+
 #### 红黑树
 
 普通AVL树为了维持树的高度平衡，进行了大量的旋转操作，最终保证树的高度差不会超过2。但是它的旋转次数过多，导致了性能的降低。为了进行优化，提出了红黑树作为AVL树的改进。红黑树为了减少旋转次数，降低了树的平衡性，让树的高度差可以大于2。但是它依然保持了对数的查找性能。
@@ -749,23 +752,19 @@ struct TreeNode {
 另外一种情况，NR是黑色的，这种情况可能会比较反直觉，一边红一边黑，黑高是如何维持一致的？首先nullptr也要算成黑色，其次，我们总是会回溯上面的节点，这时候就有可能出现一边红色一边黑色的情形。结果还是依靠旋转进行操作。根据子结点插入的位置，我们用之前的LL，LR，RL，RR操作进行调整，并且调整颜色，可以发现，这一过程，没有改变原本的黑高。
 ![RedBlackInsert2](./figure/algorithm/RedBlackInsert2.png)
 而且N0结点的颜色也依然是黑色，说明我们不需要再往上检查了。
-我们在旋转过程中调整颜色，观察一下会发现，只有N0和新的根结点会变色。所以我们在旋转函数中增加这一调整。
+我们在旋转过程中调整颜色，观察一下会发现，只有N0和新的根结点会变色。但是我们不能直接在四个旋转函数里改变颜色，因为不仅是插入函数，在删除时，我们也会用到旋转，所以，我们在实现插入函数时，再改变结点的颜色。
 
 ```cpp
 void LL(TreeNode *&p) {
     TreeNode *newp = p->left;
     p->left = newp->right;
     newp->right = p;
-    p->color = !p->color;
-    newp->color = !newp->color;
     p = newp;
 }
 void RR(TreeNode *&p) {
     TreeNode *newp = p->right;
     p->right = newp->left;
     newp->left = p;
-    p->color = !p->color;
-    newp->color = !newp->color;
     p = newp;
 }
 void LR(TreeNode *&p) {
@@ -774,8 +773,6 @@ void LR(TreeNode *&p) {
     newp->left = p->left;
     p->left = newp->right;
     newp->right = p;
-    p->color = !p->color;
-    newp->color = !newp->color;
     p = newp;
 }
 void RL(TreeNode *&p) {
@@ -784,8 +781,6 @@ void RL(TreeNode *&p) {
     newp->right = p->right;
     p->right = newp->left;
     newp->left = p;
-    p->color = !p->color;
-    newp->color = !newp->color;
     p = newp;
 }
 ```
@@ -837,6 +832,7 @@ void insert(T i) {
                 return;
             }
             if (!comparecolor(p)) {//red,black
+                p->color = true;
                 if (p->data > i) {
                     if (p->left->data > i) {
                         LL(p);
@@ -850,6 +846,7 @@ void insert(T i) {
                         RR(p);
                     }
                 }
+                p->color = false;
                 if (st.empty()) {
                     root = p;
                 } else {
@@ -880,4 +877,193 @@ void insert(T i) {
 特别地，当处理到根节点时，我们直接把根节点变为黑色，并且return。
 这里是否需要考虑根节点是红色，并且只有2层的情况？
 虽然我们初始化时，已经把根节点设置为黑色的了，但是有可能经过删除操作后，会出现两层且为黑结点的情况。以防万一，我们也必须对2层时进行检查，保证它一直是一颗红黑树。
+
+红黑树的删除最为复杂。首先，我们同样考虑删除结点的叶结点个数进行分类。对于有两个叶子的结点，我们找它的后继结点进行替换。删除结束后，我们需要维持红黑树的性质。
+首先，假如我们删除的结点是红色的，那么就可以直接删除，不会破坏原有的红黑树。
+假如是黑色的结点呢？删除结点，会导致根到这个结点上的黑高减少了1，就失去平衡了。我们考虑从删除结点的子结点处借一个结点来。首先，根据基本的二叉搜索树删除操作，我们只会面对删除0个子结点和1个子节点的情况。
+首先是只有1个子结点的情况，因为一边是nullptr，所以子节点一定是红色的。否则红黑树原本就是不平衡的。我们把这个结点与父结点连接，再把它变为黑色，就维持了原来的平衡。
+![RedBlackTreeDelete1](./figure/algorithm/RedBlackTreeDelete1.png)
+接下来必须面对删除没有子节点的黑叶结点了。因为不能把子节点变色，所以我们只能考虑父结点和兄弟结点的颜色情况。
+
+1. 父节点是红色的。这时候，因为不能有连续的双红，因此兄弟结点也是黑色的。删除自己的话，要怎么维持平衡呢？
+这个时候需要考察兄弟结点的子结点，有三种情况。
+    1. 兄弟结点的子节点都是黑色的，也就是说，没有红色的子结点。我们把父结点改为黑色，把兄弟结点改为红色，就维持了黑高的平衡。因为整体的黑高没有改变，因此删除操作就完成了。
+    2. 兄弟结点有红色的子节点。这时候把兄弟改成红色会出现连续双红的情况，没有办法了，只好进行旋转调整。如果红节点在外侧，那么一次外侧旋转可以完成操作。旋转完成后，把父节点和红色外节点变为黑色，把兄弟变为红色，就完成了调整的操作。因为这时候路径上的黑高也没有改变，所以完成了删除。
+    ![RedBlackTreeDelete2](./figure/algorithm/RedBlackTreeDelete2.png)
+    3. 红色子节点在内侧。这时候进行一次内旋转可以完成调整，这一轮，只需要把父节点变为黑色就维持了原有的平衡，删除完成。
+    ![RedBlackTreeDelete3](./figure/algorithm/RedBlackTreeDelete3.png)
+总结一下，父节点是红色的情况，最多只要一次旋转就能结束整个删除函数，也不需要向上回溯检查。研究变色情况，发现每一种情况下，原父节点的颜色都变成了黑色。而兄弟节点视情况调整颜色。
+2. 父节点是黑色的。这时候，兄弟节点可能是红色，也可能是黑色的。我们同样需要对兄弟节点和它的子节点颜色进行分类讨论。
+    1. 兄弟节点是红色的，那么兄弟节点的两个子节点肯定是黑色的。我们做一次外旋转，让兄弟节点成为父节点，改变它的颜色为黑色。而把父节点变为红色。这样就维持了原有的黑高。因此不需要再回溯检查了。
+    ![RedBlackTreeDelete4](./figure/algorithm/RedBlackTreeDelete4.png)
+    2. 兄弟节点是黑色的，兄弟节点的子节点可能有2个黑节点，一个外红节点，一个内红节点三种情况。首先考虑兄弟节点的子节点都是黑色的情况。这时候，我们把兄弟节点变成红色，就完成了调整，但是整体的黑高降低了，我们需要再迭代考察上面的节点情况。
+    ![RedBlackTreeDelete5](./figure/algorithm/RedBlackTreeDelete5.png)
+    3. 兄弟节点的外节点是红色的，我们做一次外旋转，让兄弟成为父节点，把外结点设为黑色，这时候，就维持了黑高的平衡，不需要再迭代了。并且，我们不需要考虑内结点是红色还是黑色的。
+    ![RedBlackTreeDelete6](./figure/algorithm/RedBlackTreeDelete6.png)
+    4. 兄弟内节点是红色的，显然，我们需要进行内旋转了。我们把内结点旋转到父结点，并把它设置为黑色。这样，我们就维持了原本的黑高平衡。不需要再回溯迭代了。
+    ![RedBlackTreeDelete7](./figure/algorithm/RedBlackTreeDelete7.png)
+
+我们总结一下，删除时，我们一共考虑了7种情形，其中只有一种情形需要回溯检查，其他的只需要最多一次旋转就结束了，相比AVL树，旋转确实简化了很多。代价是写的代码变得复杂了，我们需要对每种情况做好分类讨论。
+因为需要分左右，所以总共是14种。
+此外，我们还要注意最终回溯到根结点的情况，把根节点的子结点变色后，整体的黑高降低了，并且不需要再继续往上进行调整。在那时考察当前结点是不是根结点，进行处理。
+最终的代码如下：
+
+```cpp
+void remove(T i) {
+    TreeNode *p = root;
+    TreeNode *parent = nullptr;
+    std::stack<TreeNode*> st;
+    while (p != nullptr) {
+        if (p->data == i) {
+            break;
+        } else if (p->data < i) {
+            st.push(p);
+            parent = p;
+            p = p->right;
+        } else {
+            st.push(p);
+            parent = p;
+            p = p->left;
+        }
+    }
+    if (p == nullptr) {
+        return;
+    }
+    if (p->left && p->right) {
+        TreeNode *child = p->right;
+        TreeNode *childp = p;
+        st.push(p);
+        while (child->left != nullptr) {
+            st.push(child);
+            childp = child;
+            child = child->left;
+        }
+        p->data = child->data;
+        p = child;
+        parent = childp;
+    }
+    TreeNode *child;
+    if (p->left != nullptr) {
+        child = p->left;
+    } else {
+        child = p->right;
+    }
+    if (parent == nullptr) {
+        root = child;
+    } else if (parent->left == p) {
+        parent->left = child;
+    } else {
+        parent->right = child;
+    }
+    //删除红结点
+    if (p->color) {
+        delete p;
+        return;
+    }
+    delete p;
+    //黑结点有一个子结点
+    if (parent->data > i) {
+        if (parent->left) {
+            parent->left->color = false;
+            return;
+        }
+    } else {
+        if (parent->right) {
+            parent->right->color = false;
+            return;
+        }
+    }
+    //黑结点无子结点。
+    while (!st.empty()) {
+        p = st.top();
+        st.pop();
+        if (p->color) {
+            if (p->data > i) {//删除在左边，检查右边
+                p->color = false;
+                if (p->right->right && p->right->right->color) {//case2
+                    p->right->color = true;
+                    RR(p);
+                    p->color = false;
+                } else if (p->right->left && p->right->left->color) {//case3
+                    RL(p);
+                } else {//case1
+                    p->right->color = true;
+                }
+            } else {
+                p->color = false;
+                if (p->left->left && p->left->left->color) {
+                    p->left->color = true;
+                    LL(p);
+                    p->color = false;
+                } else if (p->left->right && p->left->right->color) {
+                    LR(p);
+                } else {
+                    p->left->color = true;
+                }
+            }
+            if (st.empty()) {
+                root = p;
+            } else {
+                TreeNode *q = st.top();
+                if (p->data < q->data) {
+                    q->left = p;
+                } else {
+                    q->right = p;
+                }
+            }
+            return;
+        } else {
+            bool flag = true; //判断是否要迭代
+            if (p->data > i) {//删除在左边，检查右边
+                if (p->right->color) {//case1
+                    p->color = true;
+                    RR(p);
+                    p->color = false;
+                } else if (p->right->right && p->right->right->color) {//case3
+                    RR(p);
+                    p->color = false;
+                } else if (p->right->left && p->right->left->color) {//case4
+                    RL(p);
+                    p->color = false;
+                } else {//case2
+                    p->right->color = true;
+                    flag = false;
+                }
+            } else {
+                if (p->left->color) {
+                    p->color = true;
+                    LL(p);
+                    p->color = true;
+                } else if (p->left->left && p->left->left->color) {
+                    LL(p);
+                    p->color = true;
+                } else if (p->left->right && p->left->right->color) {
+                    LR(p);
+                    p->color = true;
+                } else {
+                    p->left->color = true;
+                    flag = false;
+                }
+            }
+            if (flag || st.empty()) {
+                if (st.empty()) {
+                    root = p;
+                } else {
+                    TreeNode *q = st.top();
+                    if (p->data < q->data) {
+                        q->left = p;
+                    } else {
+                        q->right = p;
+                    }
+                }
+                return;
+            }
+        }
+    }
+}
+```
+
+代码写起来真的是相当的复杂，不过也是可以解释的，首先我们用了栈存储结点，而不是用递归函数，因此内存消耗会更小。考虑我们做旋转时的思路，其实重点关注的是兄弟结点的子结点的颜色。如果兄弟结点的3个颜色都是黑色，就进行变色，如果有红色，只要红色偏外侧，就用外旋转，只有内侧有红色时，才用内旋转。这样就完成了多种情况的分类讨论。
+
+---
 
