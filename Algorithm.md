@@ -743,7 +743,7 @@ struct TreeNode {
 };
 ```
 
-##### 插入结点
+##### 插入
 
 红黑树插入时，我们知道插入黑色结点是不行的，因为必定会改变路径的黑色结点数。所以我们要插入红色的结点，如果插入的结点父节点是黑色的，插入就轻松完成了，如果是红色的，应该怎么进行调整呢？
 如果只有2层，也就是根节点是红色的，这个时候直接把根节点变为黑色就可以了。为了省略这个过程，我们插入第一个节点时，就可以直接把它设为黑色的。
@@ -877,6 +877,8 @@ void insert(T i) {
 特别地，当处理到根节点时，我们直接把根节点变为黑色，并且return。
 这里是否需要考虑根节点是红色，并且只有2层的情况？
 虽然我们初始化时，已经把根节点设置为黑色的了，但是有可能经过删除操作后，会出现两层且为黑结点的情况。以防万一，我们也必须对2层时进行检查，保证它一直是一颗红黑树。
+
+##### 删除
 
 红黑树的删除最为复杂。首先，我们同样考虑删除结点的叶结点个数进行分类。对于有两个叶子的结点，我们找它的后继结点进行替换。删除结束后，我们需要维持红黑树的性质。
 首先，假如我们删除的结点是红色的，那么就可以直接删除，不会破坏原有的红黑树。
@@ -1067,3 +1069,251 @@ void remove(T i) {
 
 ---
 
+#### AA树
+
+红黑树性能很好，但是写起来太复杂了。AA树是一种对红黑树的简化，它的插入和删除性能也维持在了O(logn)级别，但是略微不如红黑树。它在红黑树的基础上新增了一条要求：
+
+1. 红色结点必须是右结点。
+
+因为这个条件的限制，对AA树进行分类讨论的case减少了，但是与之对应的，处理的逻辑也会变得更加复杂。
+AA树的基本操作与储存都与红黑树一致，同样也包含了四个旋转操作。我们主要分析AA树的插入与删除该怎么处理。
+
+首先，我们用一种新的理解方式来看待AA树，也就是所谓的层级。这里，我们把根节点当作最高的一层，它的两个子结点，如果是黑结点，那么就是下一层，如果是红结点，那么它就看作和根节点同一层。
+![AATree1](./figure/algorithm/AATree1.png)
+从图上能够更好地理解level的概念，实际上，拉伸调整一下AA树的形状，它就是一颗正常的红黑树。
+在这个语境下，我们再来考虑一下红黑树黑高相等的含义，很容易理解，那就是所有的nullptr结点都在最下面一层。红结点与父结点总是在同一层的，所以不会影响到黑高。由此我们也可以断言，在第二层以上的结点总是满的，插入与删除总是发生在第一层上。
+为了更直观地看待level水平，我们不再记录结点的颜色值，而是直接记录结点的level值，借此我们也能够通过根结点知道目前的AA树有多少层。
+
+1. 对于结点N0，NR可以和N0同level，但是NRR必须比N0小，也就是说，不允许有连续的水平右路。
+2. 对于左节点NL，它必定比N0小，也就是所，不能有水平左路。
+
+对于AA树的基本操作已经不用过多叙述，我们同样有四个旋转函数用于处理插入删除时的情况。
+
+1. 首先我们考虑，出现连续水平右路的情况。
+![AATree2](./figure/algorithm/AATree2.png)
+看图片的过程我们就理解了，连续水平右路做的处理实际是一次RR旋转，并且将NR结点的level增加了1。这一过程保证了当前的平衡。因为除了NR以外的level都不发生改变。但是需要向上继续调整，level增加以后，上方有可能会出现连续水平右路或者水平左路的情况。
+2. 接下来我们考虑水平左路的情况。水平左路时，需要考虑父节点与父节点的右子结点的level。第一种情况是，父节点比当前的结点高一层，并且右节点和当前的结点同一层。这时候我们执行一次LL旋转，并且不需要改变结点的level。就完成了整个调整。因为这一过程没有发生level改变，所以不需要再回溯检查了。
+![AATree3](./figure/algorithm/AATree3.png)
+3. 如果右节点与父结点是同一层，那么执行LL旋转就会导致出现连续水平右路。因为原本是一颗稳定的AA树，所以我们肯定右节点的子结点肯定都是低一层的，不然不执行LL旋转，就会出现连续水平右路。教科书的描述中，执行一次LL旋转后，再执行一次RR旋转就可以了。我们观察调整前后的结点变化，发现这种情况，只需要将根结点提高一层，也就是++level，就解决了问题。同样的，这时候我们需要回溯检查。
+![AATree4](./figure/algorithm/AATree4.png)
+4. 如果当前结点就是父节点的右节点，并且还出现了水平左路，呈一个来回的路径，这时候执行LL旋转，会导致父节点出现了连续水平右链。所以还要再进行一次RR旋转。这种情况，我们需要在父结点的位置执行RL操作，并且将左链的结点level加一，需要向上回溯检查。
+![AATree5](./figure/algorithm/AATree5.png)
+
+在上述的几种情况中，有些复杂。因为进行旋转操作时，不同情况下，对应的旋转根节点有区别。这造成了我们的写代码实现的困难，同时，只有2层在根节点时，我们需要写额外的代码进行区分。
+为了简化，并且也符合栈回溯的逻辑，我们只考虑插入位于上个结点左右的情况。
+
+1. 变化的结点在当前结点的左边，检查左子结点level，如果低一层，说明正常，可以返回，否则，检查右子结点是第一层还是高一层，做出对应的处理。之后在上一层继续检查。
+2. 变化的结点在当前结点的右边，检查是否出现了连续右路，如果有，进行一次旋转，如果没有，则可以直接返回。这时候，不需要再考虑是否出现连续左路。
+
+##### 插入
+
+根据上述的分析，我们实现插入函数。
+
+```cpp
+int getLevel(TreeNode *p) {
+    if (p == nullptr) {
+        return 0;
+    }
+    return p->level;
+}
+
+void insert(T i) {
+    TreeNode *p = root;
+    if (p == nullptr) {
+        root = new TreeNode(i);
+        return;
+    }
+    std::stack<TreeNode*> st;
+    while (p != nullptr) {
+        st.push(p);
+        if (p->data == i) {
+            return;
+        } else if (p->data < i) {
+            p = p->right;
+        } else {
+            p = p->left;
+        }
+    }
+    p = st.top();
+    if (p->data < i) {
+        p->right = new TreeNode(i);
+    } else {
+        p->left = new TreeNode(i);
+    }
+    while (!st.empty()) {
+        p = st.top();
+        st.pop();
+        int tmp = p->level;
+        if (p->data > i) {//检查水平左路
+            if (tmp > getLevel(p->left)) {
+                return;
+            } else {
+                if (tmp == getLevel(p->right)) {
+                    ++p->level;
+                    continue;
+                } else {
+                    LL(p);        
+                }
+            }
+        } else {
+            if (tmp == getLevel(p->right) && (tmp == getLevel(p->right->right))) {
+                RR(p);
+                ++p->level;
+            }
+        }
+        if (st.empty()) {
+            root = p;
+        } else {
+            TreeNode *q = st.top();
+            if (p->data < q->data) {
+                q->left = p;
+            } else {
+                q->right = p;
+            }
+        }
+    }
+}
+```
+
+我们写一个简易的获取level的函数，这样我们就不需要纠结nullptr的问题了。在插入函数中，回溯检查每个结点是否存在水平左路和连续右路。每个结点只会最多进行一次旋转。
+
+##### 删除
+
+和其他所有的二叉搜索树一样，删除结点是最麻烦的。删除的基本思路总是用后继结点代替删除，并且将自己的子结点连给父结点上。我们知道AA树的第二层往上都是有两个子结点的满树，因此删除只发生在第一层。如果删除的结点有一个子结点，那么很显然子结点是它的右节点，level相同，因此直接替换即可。如果没有子节点。我们就要考虑父节点的level，如果删除的是同层的右结点，同样可以直接返回，但是如果父节点高一层呢？删除后，父节点不再是一颗满的树，它需要进行降级。
+![AATree1](./figure/algorithm/AATree1.png)
+我们要把删除结点理解为，子节点的level降低了1。这是为了方便我们进行回溯检查。
+
+1. 首先我们考虑左边的结点level减少了1。这时候我们要分多种情况考虑。主要处理右结点是否正常。
+    1. NR的level比N0低1，且NRR的level比NR低。这是最简单的一种情况，我们直接降低N0的高度就完成操作了，但是需要往上回溯检查。
+    2. NR的level比N0低，但是NRR和NR的level相同。这时候，降低N0会出现连续右路，所以我们做一次RR旋转，把NR作为主结点。NR的level加一，N0level减一。由于这个操作没有改变主结点高度，所以完成了删除。
+    3. NR的level与N0相同。降低N0，会导致NR比N0更高。这时候我们要检查的结点更深了。首先，我们可以肯定NR处于高level，因此NR的两个子节点NRL与NRR都比NR低。我们要检查的是NRL的右结点NRLR，如果它比NRL低，我们就可以直接进行一次RR旋转，N0level-1，让NR成为根结点，注意，这一次我们不需要再调整NR的高度了，完成删除。
+    4. 如果NRLR和NRL平级，简单的RR旋转会产生连续水平右路，于是我们进行RL旋转，增加NRL的level成为根节点，N0level-1，完成删除。
+    ![AATreeDelete1](./figure/algorithm/AATreedelete1.png)
+2. 接下来我们考虑右边的结点level减少了1，同样考虑父节点与左节点的高度联系。
+    1. NR和N0原本是同高的，这种情况不需要进行处理，也是一颗正常AA树。为什么呢？因为我们向上迭代时，已经把下面的结点都处理好了，所以不需要担心下面的结点会有问题。
+    2. NR比N0低，需要降低N0。N0必定存在NL，且NL和NR同层，降低N0的level，会出现水平左路。我们要考虑NLR的高度，如果NLR比NL低，那么我只需要一次LL旋转，就能解决路的问题，但是根节点的level会因此降低，需要回溯检查。
+    3. NLR与NL同层。这时候NLR的两个子节点必然是更低的，我们执行一次LR旋转。把NLR的level+1。从而维持了平衡。由于最终节点的高度不变，所以完成了删除。
+    ![AATreeDelete2](./figure/algorithm/AATreedelete2.png)
+
+于是，AA树的删除情况我们也分析完成了。好像也是7种case，似乎并没有比红黑树好多少啊。在原代码的实现中，只有LL与RR两种旋转函数，原作者做了非常厉害的流程整合，保证了每个情况调整在5次LL与RR操作内实现，因此写的代码更加简单，但是理解难度很高。我觉得，用我这样实际的分类讨论更加直观一些，代码的流程也会比较容易理解。并且，前面我们讲的两种不需要检查的情况也能归入这里面。
+AA树的删除函数如下：
+
+```cpp
+void remove(T i) {
+    TreeNode *p = root;
+    TreeNode *parent = nullptr;
+    std::stack<TreeNode*> st;
+    while (p != nullptr) {
+        if (p->data == i) {
+            break;
+        } else if (p->data < i) {
+            st.push(p);
+            parent = p;
+            p = p->right;
+        } else {
+            st.push(p);
+            parent = p;
+            p = p->left;
+        }
+    }
+    if (p == nullptr) {
+        return;
+    }
+    if (p->left && p->right) {
+        TreeNode *child = p->right;
+        TreeNode *childp = p;
+        st.push(p);
+        while (child->left != nullptr) {
+            st.push(child);
+            childp = child;
+            child = child->left;
+        }
+        p->data = child->data;
+        p = child;
+        parent = childp;
+    }
+    TreeNode *child;
+    if (p->left != nullptr) {
+        child = p->left;
+    } else {
+        child = p->right;
+    }
+    if (parent == nullptr) {
+        root = child;
+    } else if (parent->left == p) {
+        parent->left = child;
+    } else {
+        parent->right = child;
+    }
+    delete p;
+    while (!st.empty()) {
+        p = st.top();
+        st.pop();
+        int tmp = p->level;
+        if (p->data > i) {//左节点
+            if (tmp - getLevel(p->left) == 1) {
+                return;
+            }
+            --p->level;
+            if (tmp - getLevel(p->right) == 1) {
+                if (tmp - getLevel(p->right->right) == 2) {//case1
+                    continue;
+                } else {//case2
+                    RR(p);
+                    ++p->level;
+                }
+            } else {
+                if (getLevel(p->right->left) != getLevel(p->right->left->right)) {//case3
+                    RR(p);
+                } else {//case4
+                    RL(p);
+                    ++p->level;
+                }
+            }
+        } else {//右节点
+            if (tmp - getLevel(p->right) == 1) {//case1
+                return;
+            }
+            --p->level;
+            if (getLevel(p->left) != getLevel(p->left->right)) {//case2
+                continue;
+            } else {//case3
+                LR(p);
+                ++p->level;
+            }
+        }
+        if (st.empty()) {
+            root = p;
+        } else {
+            TreeNode *q = st.top();
+            if (p->data < q->data) {
+                q->left = p;
+            } else {
+                q->right = p;
+            }
+        }
+    }
+}
+```
+
+经典的超级长代码，不过也似乎确实比红黑树的代码略短一些，至于时间效率就不好说了。最坏的情况，AA树也会一直回溯到根节点，而且需要回溯的case中包含了旋转操作，因此性能不一定会优于红黑树。
+
+---
+
+#### unordered_map
+
+c++标准库里提供了哈希表用来存储键值对，它的底层原理是红黑树。用哈希表可以实现O(1)的查找，感觉存疑，虽然Leetcode上声称是O(1)的，但我怎么也不觉得用树存储的查找能到O(1)。
+哈希表可以直接用下标赋值，并且提供了检查是否存在的函数。注意，哈希表是单向的映射，所以如果想双向查找，就需要建两个哈希表。
+
+```cpp
+#include <unordered_map>
+std::unordered_map<char, int> map;
+map['a'] = 3;
+if (map.count('a')) {
+    std::cout << map['a'];
+}
+```
+
+---
+
+#### B树
