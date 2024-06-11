@@ -236,10 +236,11 @@ void fun() {
 
 ### 智能指针
 
-对于普通的指针，需要进行delete操作，但是调用智能指针，可以省去这一步骤，由标准库自动delete处理。
+对于普通的指针，需要进行delete操作，但是调用智能指针，可以省去这一步骤，由标准库自动delete处理。区分shared和unique。unique不允许多个指针指向同一个值，且必须用std::move()赋值。
 
 ```cpp
 std::unique_ptr<int> prt(new int(42));
+std::shared_ptr<int> ptr(new int(42));
 ```
 
 ### 类型别名
